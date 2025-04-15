@@ -1,8 +1,60 @@
 package kalbe.corp.basicsyntax
 
 fun main() {
-    val text: String? = null
+    
 }
+
+// Functions
+/*
+    fun printUser(name: String) {
+        print("Your name is $name")
+    }
+
+    fun printUser(name: String): Unit {
+        print("Your name is $name")
+    }
+
+    // Named Argument
+    fun main() {
+        val fullName = getFullName(first = "Kotlin" , middle = " is ", last = "Awesome")
+        val fullName = getFullName(middle = " is " , first = "Kotlin", last = "Awesome")
+            // bisa bebas posisi argumennya
+        print(fullName)
+    }
+
+    fun getFullName(first: String, middle: String, last: String): String {
+        return "$first $middle $last"
+    }
+
+    // Default Argument
+    fun getFullName(
+            first: String = "Kotlin",
+            middle: String = " is ",
+            last: String = "Awesome"): String {
+        return "$first $middle $last"
+    }
+
+    // vararg (Variable Argument)
+    fun main() {
+        val number = sumNumbers(10, 20, 30, 40)
+        print(number)
+    }
+
+    fun sumNumbers(vararg number: Int): Int {
+        return number.sum()
+    }
+
+    // bisa gini juga
+
+    fun main() {
+        val number = intArrayOf(10, 20, 30, 40)
+        sets(10, 20, 20, *number , 10)
+    }
+
+    fun sets(vararg number: Int): Int {
+        ...
+    }
+*/
 
 // Data Types & Variable
 /*
@@ -172,9 +224,4 @@ fun main() {
     With non-null assertion (!!) | NOT RECOMMENDED!! |
     val text: String? = null
     val textLength = text!!.length // ready to go ???
-*/
-
-// Functions
-/*
-
 */
