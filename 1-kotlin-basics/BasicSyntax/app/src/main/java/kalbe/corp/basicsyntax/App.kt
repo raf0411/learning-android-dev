@@ -1,7 +1,7 @@
 package kalbe.corp.basicsyntax
 
 fun main() {
-    
+    println("Hello World.")
 }
 
 // Functions

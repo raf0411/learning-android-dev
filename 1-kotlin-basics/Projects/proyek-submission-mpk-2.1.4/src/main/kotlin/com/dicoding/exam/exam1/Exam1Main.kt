@@ -1,6 +1,6 @@
 package com.dicoding.exam.exam1
 
-private fun main() {
+fun main() {
     println(
         """
             ${isEvenNumber(1)}

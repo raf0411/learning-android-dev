@@ -5,7 +5,7 @@ import org.jmailen.gradle.kotlinter.tasks.LintTask
 open class ExecOperationsTask @Inject constructor(@Internal val execOperations: ExecOperations) : DefaultTask()
 
 plugins {
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "1.9.20"
     application
     id("org.jmailen.kotlinter") version "3.16.0"
 }
