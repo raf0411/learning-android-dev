@@ -4,7 +4,7 @@ package com.dicoding.exam.exam2
 fun calculate(valueA: Int, valueB: Int, valueC: Int?): Int {
     var result: Int = 0
 
-    if(valueC === null){
+    if (valueC === null) {
         result = valueA + valueB - 50
         return result
     }
