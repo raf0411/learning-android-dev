@@ -73,9 +73,7 @@ fun removeTask(id: UUID){
 }
 
 fun showAllTask(){
-    for (task in tasks){
-        
-    }
+
 }
 
 fun displayAddTaskMenu(){
