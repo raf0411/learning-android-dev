@@ -10,6 +10,8 @@ repositories {
 }
 
 dependencies {
+    implementation("com.google.code.gson:gson:2.13.1")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     testImplementation(kotlin("test"))
 }
