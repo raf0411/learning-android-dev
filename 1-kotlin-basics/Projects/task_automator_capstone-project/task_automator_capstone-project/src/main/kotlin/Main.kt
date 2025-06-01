@@ -1,15 +1,22 @@
 package org.example
 
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.util.UUID
 import kotlinx.coroutines.*
-import java.io.BufferedReader
 import java.io.File
+import java.io.FileReader
 import java.io.FileWriter
+import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
+
+// 1. Create a Task Repository
+// 2. Create a get data from json file (check if not exists create one)
+// 3. Put all CRUD stuff to Repository
+// 4. All argument for CRUD stuff must take from getTasks() -> which is from json file
 
 data class Task(
     val id: UUID,
@@ -24,7 +31,7 @@ enum class Priority {
     LOW
 }
 
-fun addTask(title: String, deadline: LocalDateTime?, priority: String, tasks: ArrayList<Task>){
+fun addTask(title: String, deadline: LocalDateTime?, priority: String){
     val convertedPriority = when (priority.uppercase()){
         "HIGH" -> Priority.HIGH
         "MEDIUM" -> Priority.MEDIUM
@@ -41,34 +48,21 @@ fun addTask(title: String, deadline: LocalDateTime?, priority: String, tasks: Ar
         priority = convertedPriority,
     )
 
-    tasks.add(newTask)
-    persistsData(newTask)
+    persistTask(newTask)
 }
 
-fun removeTask(id: UUID, tasks: ArrayList<Task>): Boolean{
-    val taskIndex = tasks.indexOfFirst { it.id == id }
-
-    runBlocking {
-        println("Removing task, please wait!")
-        delay(5000L)
-
-        val job = launch {
-            println("Task added successfully!")
-        }
-
-        job.join()
-    }
+fun removeTask(id: UUID){
+    val taskIndex = getTaskArrayList().indexOfFirst { it.id == id }
 
     if (taskIndex != -1) {
-        tasks.removeAt(taskIndex)
-        return true
+        getTaskArrayList().removeAt(taskIndex)
     } else {
         println("Error: Task with ID '$id' not found in the list.")
-        return false
     }
 }
 
-fun showAllTask(tasks: ArrayList<Task>){
+fun showAllTask(){
+    val tasks = getTaskArrayList()
 
     if (tasks.isEmpty()){
         println("===================================")
@@ -116,7 +110,7 @@ fun showAllTask(tasks: ArrayList<Task>){
     readln()
 }
 
-fun displayAddTaskMenu(tasks: ArrayList<Task>){
+fun displayAddTaskMenu(){
     lateinit var title: String
     lateinit var deadline: String
     lateinit var priority: String
@@ -155,7 +149,7 @@ fun displayAddTaskMenu(tasks: ArrayList<Task>){
         delay(5000L)
 
         val job = launch {
-            addTask(title, formatDate(deadline), priority, tasks)
+            addTask(title, formatDate(deadline), priority)
             println("Task added successfully!")
         }
 
@@ -166,8 +160,8 @@ fun displayAddTaskMenu(tasks: ArrayList<Task>){
     readln()
 }
 
-fun displayRemoveTaskMenu(tasks: ArrayList<Task>) {
-    if (tasks.isEmpty()) {
+fun displayRemoveTaskMenu() {
+    if (getTaskArrayList().isEmpty()) {
         println("===================================")
         println("========== Remove Task ============")
         println("===================================")
@@ -177,7 +171,7 @@ fun displayRemoveTaskMenu(tasks: ArrayList<Task>) {
         return
     }
 
-    showAllTask(tasks)
+    showAllTask()
     println("===================================")
     println("========== Remove Task ============")
     println("===================================")
@@ -195,13 +189,25 @@ fun displayRemoveTaskMenu(tasks: ArrayList<Task>) {
 
         try {
             val idToRemove = UUID.fromString(userInputId)
-            taskSuccessfullyRemoved = removeTask(idToRemove, tasks)
+            removeTask(idToRemove)
+            taskSuccessfullyRemoved = true
 
         } catch (_: IllegalArgumentException) {
             println("Invalid UUID string entered: '$userInputId'.")
 
         }
     } while (!taskSuccessfullyRemoved)
+
+    runBlocking {
+        println("Removing task, please wait!")
+        delay(5000L)
+
+        val job = launch {
+            println("Task added successfully!")
+        }
+
+        job.join()
+    }
 
     if (taskSuccessfullyRemoved) {
         print("Press enter to continue.")
@@ -223,6 +229,12 @@ fun displayMainMenu(){
     print(">> ")
 }
 
+fun sayGoodbye(){
+    println("====================================")
+    println("==== GOODBYE! WE'LL MISS YOU 😔 ====")
+    println("====================================")
+}
+
 fun formatDate(date: String): LocalDateTime? {
     return try {
         val inputPattern = "d MMMM yyyy HH:mm:ss"
@@ -242,27 +254,62 @@ fun formatDate(date: String): LocalDateTime? {
     }
 }
 
-fun persistsData(task: Task){
+fun persistTask(task: Task){
     val file = File("tasks.json")
-    val writer = FileWriter(file)
-
+    var tasks: ArrayList<Task>? = ArrayList<Task>()
     val gson = Gson()
-    val jsonString = gson.toJson(task)
 
-    writer.append(jsonString)
-    writer.close()
+    if (file.exists() && file.length() > 0) {
+        try {
+            FileReader(file).use { reader ->
+                val listType = object : TypeToken<ArrayList<Task>>() {}.type
+
+                val existingTasks: ArrayList<Task>? = gson.fromJson(reader, listType)
+                if (existingTasks != null) {
+                    tasks = existingTasks
+                }
+            }
+        } catch (e: Exception) {
+            println("Error reading or parsing tasks.json, will start with a new list. Error: ${e.message}")
+            tasks = ArrayList()
+        }
+    }
+
+    tasks?.add(task)
+
+    try {
+        FileWriter(file).use { writer ->
+            gson.toJson(tasks, writer)
+        }
+    } catch (e: IOException) {
+        println("Error writing updated task list to tasks.json: ${e.message}")
+    }
 }
 
-fun getData(){
+fun getTaskArrayList(): ArrayList<Task>{
     val file = File("tasks.json")
-    val reader = BufferedReader(file.reader())
-    val jsonStringFromFile = reader.readText()
-    reader.close()
+    val gson = Gson()
+    var taskList: ArrayList<Task> = ArrayList()
+
+    if (file.exists() && file.length() > 0) {
+        try {
+            FileReader(file).use { reader ->
+                val listType = object : TypeToken<ArrayList<Task>>() {}.type
+                taskList = gson.fromJson(reader, listType)
+            }
+        } catch (e: IOException) {
+            println("Error reading tasks.json: ${e.message}")
+        } catch (e: com.google.gson.JsonSyntaxException) {
+            println("Error parsing JSON from tasks.json: ${e.message}")
+        }
+    } else {
+        println("tasks.json does not exist or is empty.")
+    }
+
+    return taskList
 }
 
 fun main(){
-    val tasks: ArrayList<Task> = ArrayList<Task>()
-
     // Main Program Loop
     var opt = -1
 
@@ -271,9 +318,11 @@ fun main(){
         opt = readln().toInt()
 
         when (opt){
-            1 -> { displayAddTaskMenu(tasks) }
-            2 -> { displayRemoveTaskMenu(tasks) }
-            3 -> { showAllTask(tasks) }
+            1 -> { displayAddTaskMenu() }
+            2 -> { displayRemoveTaskMenu() }
+            3 -> { showAllTask() }
+            0 -> { sayGoodbye() }
+            else -> { println("=== UNEXPECTED CRASH ===") }
         }
 
     } while (opt != 0)
