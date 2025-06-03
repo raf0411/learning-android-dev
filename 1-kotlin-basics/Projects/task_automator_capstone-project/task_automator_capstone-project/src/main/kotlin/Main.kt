@@ -31,6 +31,23 @@ enum class Priority {
     LOW
 }
 
+class TaskRepository {
+    val tasks: ArrayList<Task> = ArrayList()
+
+    fun addTask(task: Task){
+
+    }
+
+    fun removeTask(task: Task){
+
+    }
+
+    fun getTasks(){
+        // Create JSON file
+
+    }
+}
+
 fun addTask(title: String, deadline: LocalDateTime?, priority: String){
     val convertedPriority = when (priority.uppercase()){
         "HIGH" -> Priority.HIGH
@@ -322,7 +339,7 @@ fun main(){
             2 -> { displayRemoveTaskMenu() }
             3 -> { showAllTask() }
             0 -> { sayGoodbye() }
-            else -> { println("=== UNEXPECTED CRASH ===") }
+            else -> { println("=== ERROR ===") }
         }
 
     } while (opt != 0)
