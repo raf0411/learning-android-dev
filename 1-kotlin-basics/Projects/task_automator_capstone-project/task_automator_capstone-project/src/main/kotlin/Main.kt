@@ -13,11 +13,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
 
-// 1. Create a Task Repository
-// 2. Create a get data from json file (check if not exists create one)
-// 3. Put all CRUD stuff to Repository
-// 4. All argument for CRUD stuff must take from getTasks() -> which is from json file
-
 data class Task(
     val id: UUID,
     val title: String?,
@@ -35,12 +30,30 @@ class TaskRepository {
     val filePath = "tasks.json"
     val file = File(filePath)
 
-    fun addTask(task: Task){
-        val fileWriter = FileWriter(file)
+    fun addTask(title: String, deadline: LocalDateTime?, priority: String){
+
+        val convertedPriority = when (priority.uppercase()){
+            "HIGH" -> Priority.HIGH
+            "MEDIUM" -> Priority.MEDIUM
+            "LOW" -> Priority.LOW
+            else -> null
+        }
+
+        val newId = UUID.randomUUID()
+
+        val task = Task(
+            id = newId,
+            title = title,
+            deadline = deadline.toString(),
+            priority = convertedPriority,
+        )
+
+        val fileWriter = FileWriter(file, true)
         val gson = Gson()
         val jsonString = gson.toJson(task)
 
-        file.appendText(jsonString)
+        fileWriter.write(jsonString)
+        fileWriter.close()
     }
 
     fun removeTask(task: Task){
@@ -53,26 +66,6 @@ class TaskRepository {
 
 
     }
-}
-
-fun addTask(title: String, deadline: LocalDateTime?, priority: String){
-    val convertedPriority = when (priority.uppercase()){
-        "HIGH" -> Priority.HIGH
-        "MEDIUM" -> Priority.MEDIUM
-        "LOW" -> Priority.LOW
-        else -> null
-    }
-
-    val newId = UUID.randomUUID()
-
-    val newTask = Task(
-        id = newId,
-        title = title,
-        deadline = deadline.toString(),
-        priority = convertedPriority,
-    )
-
-    persistTask(newTask)
 }
 
 fun removeTask(id: UUID){
@@ -139,6 +132,8 @@ fun displayAddTaskMenu(){
     lateinit var deadline: String
     lateinit var priority: String
 
+    val taskRepository = TaskRepository()
+
     println("===================================")
     println("============ Add Task =============")
     println("===================================")
@@ -173,7 +168,7 @@ fun displayAddTaskMenu(){
         delay(5000L)
 
         val job = launch {
-            addTask(title, formatDate(deadline), priority)
+            taskRepository.addTask(title, formatDate(deadline), priority)
             println("Task added successfully!")
         }
 
