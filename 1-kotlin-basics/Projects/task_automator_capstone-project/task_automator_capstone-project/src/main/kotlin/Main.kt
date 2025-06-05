@@ -32,10 +32,15 @@ enum class Priority {
 }
 
 class TaskRepository {
-    val tasks: ArrayList<Task> = ArrayList()
+    val filePath = "tasks.json"
+    val file = File(filePath)
 
     fun addTask(task: Task){
+        val fileWriter = FileWriter(file)
+        val gson = Gson()
+        val jsonString = gson.toJson(task)
 
+        file.appendText(jsonString)
     }
 
     fun removeTask(task: Task){
@@ -43,7 +48,9 @@ class TaskRepository {
     }
 
     fun getTasks(){
-        // Create JSON file
+        if (!file.exists())
+            return
+
 
     }
 }
