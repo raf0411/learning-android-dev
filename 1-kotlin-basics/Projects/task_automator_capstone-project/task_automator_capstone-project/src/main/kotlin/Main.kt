@@ -1,37 +1,83 @@
 package org.example
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import java.util.UUID
 import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.FileReader
-import java.io.FileWriter
-import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.channels.FileLock
+import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
 
+@Serializable
 data class Task(
-    val id: UUID,
-    val title: String?,
-    val deadline: String?, // e.g, 2 May 2025 15:05
+    val id: String,
+    val title: String,
+    val deadline: String,
     val priority: Priority?
 )
 
+@Serializable
 enum class Priority {
     HIGH,
     MEDIUM,
     LOW
 }
 
-class TaskRepository {
-    val filePath = "tasks.json"
+class TaskRepository(filePath: String) {
+    private val json = Json { prettyPrint = true }
     val file = File(filePath)
 
-    fun addTask(title: String, deadline: LocalDateTime?, priority: String){
+    init {
+        if (!file.exists()){
+            file.createNewFile()
+            file.writeText("[]")
+        }
+    }
 
+    private fun <T> withFileLock(block: (MutableList<Task>) -> T): T {
+        RandomAccessFile(file, "rw").use { randomAccessFile ->
+            randomAccessFile.channel.use { channel ->
+                var lock: FileLock? = null
+                try {
+                    lock = channel.lock()
+
+                    val buffer = ByteBuffer.allocate(channel.size().toInt())
+                    channel.read(buffer)
+                    buffer.flip()
+                    val fileContent = StandardCharsets.UTF_8.decode(buffer).toString()
+
+                    val tasks = if (fileContent.isBlank()) {
+                        mutableListOf()
+                    } else {
+                        Json.decodeFromString<MutableList<Task>>(fileContent)
+                    }
+
+                    val result = block(tasks)
+
+                    val listSerializer = ListSerializer(Task.serializer())
+                    val jsonString = json.encodeToString(listSerializer, tasks)
+                    val jsonBytes = jsonString.toByteArray(StandardCharsets.UTF_8)
+
+                    channel.truncate(0)
+                    channel.position(0)
+                    channel.write(ByteBuffer.wrap(jsonBytes))
+
+                    return result
+                } finally {
+                    lock?.release()
+                }
+            }
+        }
+    }
+
+    fun addTask(title: String, deadline: LocalDateTime?, priority: String): Task{
         val convertedPriority = when (priority.uppercase()){
             "HIGH" -> Priority.HIGH
             "MEDIUM" -> Priority.MEDIUM
@@ -39,47 +85,44 @@ class TaskRepository {
             else -> null
         }
 
-        val newId = UUID.randomUUID()
+        val newId = UUID.randomUUID().toString()
+        val outputFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale.ENGLISH)
+        val newDeadline = deadline?.format(outputFormatter)
 
         val task = Task(
             id = newId,
             title = title,
-            deadline = deadline.toString(),
+            deadline = newDeadline.toString(),
             priority = convertedPriority,
         )
 
-        val fileWriter = FileWriter(file, true)
-        val gson = Gson()
-        val jsonString = gson.toJson(task)
-
-        fileWriter.write(jsonString)
-        fileWriter.close()
+        return withFileLock { tasks ->
+            tasks.add(task)
+            task
+        }
     }
 
-    fun removeTask(task: Task){
-
+    fun getAllTasks(): List<Task>{
+        return withFileLock { tasks ->
+            tasks.toList()
+        }
     }
 
-    fun getTasks(){
-        if (!file.exists())
-            return
-
-
+    fun getTaskById(id: String): Task? {
+        return withFileLock { tasks ->
+            tasks.find { it.id == id }
+        }
     }
-}
 
-fun removeTask(id: UUID){
-    val taskIndex = getTaskArrayList().indexOfFirst { it.id == id }
-
-    if (taskIndex != -1) {
-        getTaskArrayList().removeAt(taskIndex)
-    } else {
-        println("Error: Task with ID '$id' not found in the list.")
+    fun removeTask(id: String){
+        return withFileLock { tasks ->
+            tasks.removeIf { it.id == id }
+        }
     }
 }
 
-fun showAllTask(){
-    val tasks = getTaskArrayList()
+fun displayAllTasks(taskRepository: TaskRepository){
+    val tasks = taskRepository.getAllTasks()
 
     if (tasks.isEmpty()){
         println("===================================")
@@ -93,7 +136,7 @@ fun showAllTask(){
 
     val idWidth = 50
     val titleWidth = 25
-    val deadlineWidth = 15
+    val deadlineWidth = 25
     val priorityWidth = 10
 
     fun String.padEndFixed(length: Int, padChar: Char = ' '): String {
@@ -116,8 +159,8 @@ fun showAllTask(){
     println(separator)
 
     for (task in tasks) {
-        val row = "| ${(task.id).toString().padEndFixed(idWidth)} | ${task.title?.padEndFixed(titleWidth)} | ${(task.deadline?.toString()
-            ?.padEndFixed(deadlineWidth))} | ${(task.priority).toString().padEndFixed(priorityWidth)} |"
+        val row = "| ${(task.id).toString().padEndFixed(idWidth)} | ${task.title.padEndFixed(titleWidth)} | ${(task.deadline.toString()
+            .padEndFixed(deadlineWidth))} | ${(task.priority).toString().padEndFixed(priorityWidth)} |"
         println(row)
     }
 
@@ -127,12 +170,10 @@ fun showAllTask(){
     readln()
 }
 
-fun displayAddTaskMenu(){
+fun displayAddTaskMenu(taskRepository: TaskRepository){
     lateinit var title: String
     lateinit var deadline: String
     lateinit var priority: String
-
-    val taskRepository = TaskRepository()
 
     println("===================================")
     println("============ Add Task =============")
@@ -179,8 +220,8 @@ fun displayAddTaskMenu(){
     readln()
 }
 
-fun displayRemoveTaskMenu() {
-    if (getTaskArrayList().isEmpty()) {
+fun displayRemoveTaskMenu(taskRepository: TaskRepository) {
+    if (taskRepository.getAllTasks().isEmpty()) {
         println("===================================")
         println("========== Remove Task ============")
         println("===================================")
@@ -190,7 +231,7 @@ fun displayRemoveTaskMenu() {
         return
     }
 
-    showAllTask()
+    displayAllTasks(taskRepository)
     println("===================================")
     println("========== Remove Task ============")
     println("===================================")
@@ -207,8 +248,8 @@ fun displayRemoveTaskMenu() {
         }
 
         try {
-            val idToRemove = UUID.fromString(userInputId)
-            removeTask(idToRemove)
+            val idToRemove = UUID.fromString(userInputId).toString()
+            taskRepository.removeTask(idToRemove)
             taskSuccessfullyRemoved = true
 
         } catch (_: IllegalArgumentException) {
@@ -222,7 +263,7 @@ fun displayRemoveTaskMenu() {
         delay(5000L)
 
         val job = launch {
-            println("Task added successfully!")
+            println("Task removed successfully!")
         }
 
         job.join()
@@ -263,73 +304,19 @@ fun formatDate(date: String): LocalDateTime? {
         parsedDate
 
     } catch (e: DateTimeParseException) {
+        e.printStackTrace()
         println("Invalid date format. Please use the format 'd MMMM yyyy HH:mm:ss' (e.g., 2 May 2025 15:05:00).")
         null
 
     } catch (e: Exception){
         e.printStackTrace()
         null
-
     }
-}
-
-fun persistTask(task: Task){
-    val file = File("tasks.json")
-    var tasks: ArrayList<Task>? = ArrayList<Task>()
-    val gson = Gson()
-
-    if (file.exists() && file.length() > 0) {
-        try {
-            FileReader(file).use { reader ->
-                val listType = object : TypeToken<ArrayList<Task>>() {}.type
-
-                val existingTasks: ArrayList<Task>? = gson.fromJson(reader, listType)
-                if (existingTasks != null) {
-                    tasks = existingTasks
-                }
-            }
-        } catch (e: Exception) {
-            println("Error reading or parsing tasks.json, will start with a new list. Error: ${e.message}")
-            tasks = ArrayList()
-        }
-    }
-
-    tasks?.add(task)
-
-    try {
-        FileWriter(file).use { writer ->
-            gson.toJson(tasks, writer)
-        }
-    } catch (e: IOException) {
-        println("Error writing updated task list to tasks.json: ${e.message}")
-    }
-}
-
-fun getTaskArrayList(): ArrayList<Task>{
-    val file = File("tasks.json")
-    val gson = Gson()
-    var taskList: ArrayList<Task> = ArrayList()
-
-    if (file.exists() && file.length() > 0) {
-        try {
-            FileReader(file).use { reader ->
-                val listType = object : TypeToken<ArrayList<Task>>() {}.type
-                taskList = gson.fromJson(reader, listType)
-            }
-        } catch (e: IOException) {
-            println("Error reading tasks.json: ${e.message}")
-        } catch (e: com.google.gson.JsonSyntaxException) {
-            println("Error parsing JSON from tasks.json: ${e.message}")
-        }
-    } else {
-        println("tasks.json does not exist or is empty.")
-    }
-
-    return taskList
 }
 
 fun main(){
     // Main Program Loop
+    val taskRepository = TaskRepository(filePath = "tasks.json")
     var opt = -1
 
     do {
@@ -337,9 +324,9 @@ fun main(){
         opt = readln().toInt()
 
         when (opt){
-            1 -> { displayAddTaskMenu() }
-            2 -> { displayRemoveTaskMenu() }
-            3 -> { showAllTask() }
+            1 -> { displayAddTaskMenu(taskRepository) }
+            2 -> { displayRemoveTaskMenu(taskRepository) }
+            3 -> { displayAllTasks(taskRepository) }
             0 -> { sayGoodbye() }
             else -> { println("=== ERROR ===") }
         }
