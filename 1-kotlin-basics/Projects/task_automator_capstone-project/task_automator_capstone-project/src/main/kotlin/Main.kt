@@ -5,7 +5,12 @@ import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.awt.Image
+import java.awt.SystemTray
+import java.awt.TrayIcon
+import java.awt.image.BufferedImage
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileLock
@@ -14,6 +19,13 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.time.Duration
+import javax.imageio.ImageIO
+
+private val scheduler = Executors.newScheduledThreadPool(1)
+val DEADLINE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale.ENGLISH)
 
 @Serializable
 data class Task(
@@ -95,6 +107,8 @@ class TaskRepository(filePath: String) {
             deadline = newDeadline.toString(),
             priority = convertedPriority,
         )
+
+        scheduleNotificationForTask(task)
 
         return withFileLock { tasks ->
             tasks.add(task)
@@ -186,7 +200,7 @@ fun displayAddTaskMenu(taskRepository: TaskRepository){
     } while (title.length < 5)
 
     do {
-        print("Enter the deadline [e.g, 2 May 2025 15:05:00]: ")
+        print("Enter the deadline [e.g, 2 May 2025 15:00]: ")
         deadline = readlnOrNull().toString()
         val isDeadline = formatDate(deadline) != null
 
@@ -295,9 +309,72 @@ fun sayGoodbye(){
     println("====================================")
 }
 
+fun parseDeadline(deadlineString: String): LocalDateTime {
+    return LocalDateTime.parse(deadlineString, DEADLINE_FORMATTER)
+}
+
+fun scheduleAllTaskNotifications(taskRepository: TaskRepository) {
+    taskRepository.getAllTasks().forEach { task ->
+        scheduleNotificationForTask(task)
+    }
+}
+
+fun showNotification(task: Task) {
+    if (SystemTray.isSupported()) {
+        val image: Image? = try {
+            val resourceUrl = object {}.javaClass.getResource("/task_notif_icon.png")
+            if (resourceUrl == null) {
+                println("Error: icon.png not found in resources folder!")
+                null
+            } else {
+                ImageIO.read(resourceUrl)
+            }
+        } catch (e: IOException) {
+            println("Error reading icon file.")
+            e.printStackTrace()
+            null
+        }
+
+        if (image == null) return
+
+        val tray = SystemTray.getSystemTray()
+        val trayIcon = TrayIcon(image, "Task Notification")
+        trayIcon.isImageAutoSize = true
+
+        try {
+            tray.add(trayIcon)
+            trayIcon.displayMessage(
+                "Your Task Now: ${task.title}",
+                "Deadline: ${task.deadline}",
+                TrayIcon.MessageType.INFO
+            )
+            Thread.sleep(5000)
+            tray.remove(trayIcon)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    } else {
+        println("System tray not supported")
+    }
+}
+
+fun scheduleNotificationForTask(task: Task) {
+    val now = LocalDateTime.now()
+    val deadline = parseDeadline(task.deadline)
+
+    if (deadline.isAfter(now)) {
+        val delay = Duration.between(now, deadline).toMillis()
+        println("Scheduling '${task.title}' in ${Duration.ofMillis(delay).toMinutes()} minutes.")
+
+        scheduler.schedule({
+            showNotification(task)
+        }, delay, TimeUnit.MILLISECONDS)
+    }
+}
+
 fun formatDate(date: String): LocalDateTime? {
     return try {
-        val inputPattern = "d MMMM yyyy HH:mm:ss"
+        val inputPattern = "d MMMM yyyy HH:mm"
         val inputFormatter = DateTimeFormatter.ofPattern(inputPattern, Locale.ENGLISH)
 
         val parsedDate = LocalDateTime.parse(date, inputFormatter)
@@ -305,7 +382,7 @@ fun formatDate(date: String): LocalDateTime? {
 
     } catch (e: DateTimeParseException) {
         e.printStackTrace()
-        println("Invalid date format. Please use the format 'd MMMM yyyy HH:mm:ss' (e.g., 2 May 2025 15:05:00).")
+        println("Invalid date format. Please use the format 'd MMMM yyyy HH:mm:ss' (e.g., 2 May 2025 15:00).")
         null
 
     } catch (e: Exception){
@@ -317,18 +394,27 @@ fun formatDate(date: String): LocalDateTime? {
 fun main(){
     // Main Program Loop
     val taskRepository = TaskRepository(filePath = "tasks.json")
+
+    println("Scheduling notifications for existing tasks...")
+    scheduleAllTaskNotifications(taskRepository)
+    println("Scheduling complete.")
+
     var opt = -1
 
     do {
         displayMainMenu()
-        opt = readln().toInt()
+        opt = readln().toIntOrNull() ?: -1
 
         when (opt){
             1 -> { displayAddTaskMenu(taskRepository) }
             2 -> { displayRemoveTaskMenu(taskRepository) }
             3 -> { displayAllTasks(taskRepository) }
-            0 -> { sayGoodbye() }
-            else -> { println("=== ERROR ===") }
+            0 -> {
+                println("Shutting down background scheduler...")
+                scheduler.shutdown()
+                sayGoodbye()
+            }
+            else -> { println("=== Invalid Option ===") }
         }
 
     } while (opt != 0)
