@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">BarcaFanProfileApp</string>
+    <string name="button_convert">Convert</string>
+    <string name="text">Please enter a number</string>
+    <string name="enter_inches">Enter inches</string>
+</resources>
