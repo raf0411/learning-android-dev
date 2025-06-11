@@ -3,4 +3,8 @@
     <string name="button_convert">Convert</string>
     <string name="text">Please enter a number</string>
     <string name="enter_inches">Enter inches</string>
+    <string name="barca_fan_profile">Barça Fan Profile</string>
+    <string name="generate_card">Generate Card</string>
+    <string name="favorite_player_name">Favorite Player Name</string>
+    <string name="username">Username</string>
 </resources>
