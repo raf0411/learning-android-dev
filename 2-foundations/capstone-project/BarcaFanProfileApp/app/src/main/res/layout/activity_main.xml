@@ -10,7 +10,6 @@
     android:backgroundTintMode="src_in"
     tools:context=".MainActivity">
 
-
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
@@ -29,6 +28,7 @@
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
+        android:autofillHints=""
         android:ems="10"
         android:hint="@string/username"
         android:inputType="text"
@@ -43,6 +43,7 @@
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        android:autofillHints=""
         android:ems="10"
         android:hint="@string/favorite_player_name"
         android:inputType="text"
@@ -68,6 +69,7 @@
         android:layout_width="240dp"
         android:layout_height="237dp"
         android:layout_marginTop="32dp"
+        android:contentDescription="@string/barcelona_logo"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.508"
         app:layout_constraintStart_toStartOf="parent"
