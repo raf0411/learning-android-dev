@@ -8,4 +8,6 @@
     <string name="favorite_player_name">Favorite Player Name</string>
     <string name="username">Username</string>
     <string name="barcelona_logo">Barcelona Logo</string>
+    <string name="favorite_player">Favorite Player</string>
+    <string name="username_user">Username</string>
 </resources>
