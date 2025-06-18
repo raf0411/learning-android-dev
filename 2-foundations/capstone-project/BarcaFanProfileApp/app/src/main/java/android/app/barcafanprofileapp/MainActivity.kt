@@ -59,4 +59,5 @@ class MainActivity : AppCompatActivity() {
         val newPlayer = PlayerModel(username, favoritePlayerName)
         playerModels.add(newPlayer)
     }
+
 }
