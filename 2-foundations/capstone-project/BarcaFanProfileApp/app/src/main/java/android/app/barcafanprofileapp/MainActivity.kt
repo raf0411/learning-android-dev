@@ -2,6 +2,7 @@ package android.app.barcafanprofileapp
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -17,11 +18,21 @@ class MainActivity : AppCompatActivity() {
     lateinit var username: String
     lateinit var favoritePlayerName: String
 
+    fun setUpPlayerModels(username: String, favoritePlayerName: String){
+        val newPlayer = PlayerModel(username, favoritePlayerName)
+        playerModels.add(newPlayer)
+    }
+
     @SuppressLint("SetTextI18n", "MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        // persisting data
+        
+
+        lateinit var adapter: PlayerAdapter
 
         val usernameEditText: EditText = findViewById(R.id.usernameEditText)
         val favPlayerEditText: EditText = findViewById(R.id.favPlayerNameEditText)
@@ -29,20 +40,25 @@ class MainActivity : AppCompatActivity() {
         val playerRecyclerView: RecyclerView = findViewById(R.id.playerRecyclerView)
 
         generateCardBtn.setOnClickListener {
-            if (usernameEditText.toString().isBlank()) {
+            if (usernameEditText.text.isBlank()) {
                 Toast.makeText(this, "Please input your username!", Toast.LENGTH_SHORT).show()
-            } else if (favPlayerEditText.toString().isBlank()) {
+            } else if (favPlayerEditText.text.isBlank()) {
                 Toast.makeText(this, "Please input your favorite player!", Toast.LENGTH_SHORT).show()
             } else {
                 username = usernameEditText.text.toString()
                 favoritePlayerName = favPlayerEditText.text.toString()
                 setUpPlayerModels(username, favoritePlayerName)
 
+                adapter.notifyItemInserted(playerModels.size - 1)
+
+                usernameEditText.text.clear()
+                favPlayerEditText.text.clear()
+
                 Toast.makeText(this, "Player Card Generated!", Toast.LENGTH_SHORT).show()
             }
         }
 
-        val adapter = PlayerAdapter(playerModels)
+        adapter = PlayerAdapter(playerModels)
 
         playerRecyclerView.adapter = adapter
         playerRecyclerView.layoutManager = LinearLayoutManager(this)
@@ -53,10 +69,4 @@ class MainActivity : AppCompatActivity() {
             insets
         }
     }
-
-    fun setUpPlayerModels(username: String, favoritePlayerName: String){
-        val newPlayer = PlayerModel(username, favoritePlayerName)
-        playerModels.add(newPlayer)
-    }
-
 }

@@ -1,6 +1,7 @@
 package android.app.barcafanprofileapp
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +17,7 @@ class PlayerAdapter(private val playerList: ArrayList<PlayerModel>):
     ): PlayerViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.player_item, parent, false)
+
         return PlayerViewHolder(view)
     }
 
